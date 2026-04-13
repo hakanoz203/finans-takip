@@ -1,0 +1,140 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #080810;
+  --bg-secondary: #0e0e1a;
+  --bg-card: #12121f;
+  --bg-card-hover: #16162a;
+  --bg-input: #1a1a2e;
+  --bg-input-focus: #1f1f38;
+  --accent-green: #00e5a0;
+  --accent-green-dim: rgba(0,229,160,0.08);
+  --accent-red: #ff4d6d;
+  --accent-red-dim: rgba(255,77,109,0.08);
+  --accent-purple: #8b5cf6;
+  --accent-purple-dim: rgba(139,92,246,0.08);
+  --accent-blue: #38bdf8;
+  --accent-blue-dim: rgba(56,189,248,0.08);
+  --accent-orange: #fb923c;
+  --text-primary: #f0f0f8;
+  --text-secondary: #a0a0c0;
+  --text-muted: #52527a;
+  --border: #1e1e35;
+  --border-bright: #2a2a48;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 24px rgba(0,0,0,0.5);
+  --shadow-glow-purple: 0 0 40px rgba(139,92,246,0.12);
+  --shadow-glow-green: 0 0 30px rgba(0,229,160,0.15);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139,92,246,0.08) 0%, transparent 60%),
+    linear-gradient(rgba(30,30,53,0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30,30,53,0.4) 1px, transparent 1px);
+  background-size: 100% 100%, 48px 48px, 48px 48px;
+  min-height: 100vh;
+}
+
+#root { width: 100%; }
+
+h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
+
+/* ── Card ── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+}
+.card:hover {
+  border-color: var(--border-bright);
+  background: var(--bg-card-hover);
+}
+.card-glow:hover {
+  border-color: rgba(139,92,246,0.35);
+  box-shadow: var(--shadow-glow-purple);
+}
+
+/* ── Input ── */
+.inp {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  padding: 11px 14px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.inp:focus {
+  background: var(--bg-input-focus);
+  border-color: rgba(139,92,246,0.5);
+  box-shadow: 0 0 0 3px rgba(139,92,246,0.1);
+}
+.inp::placeholder { color: var(--text-muted); }
+
+/* Date input dark */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5) sepia(1) saturate(0) hue-rotate(180deg);
+  cursor: pointer;
+  opacity: 0.6;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+
+/* ── Numeric elements — always use tabular (fixed-width) digits ── */
+.num {
+  font-family: 'Inter', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  letter-spacing: -0.2px;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Animations ── */
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeSlideLeft {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to   { opacity: 0; transform: translateX(-40px) scale(0.95); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(139,92,246,0.3); }
+  70%  { box-shadow: 0 0 0 10px rgba(139,92,246,0); }
+  100% { box-shadow: 0 0 0 0 rgba(139,92,246,0); }
+}
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.anim-enter  { animation: fadeSlideDown 0.28s cubic-bezier(.16,1,.3,1) forwards; }
+.anim-leave  { animation: fadeSlideLeft 0.22s ease forwards; }
+.anim-countup { animation: countUp 0.4s ease forwards; }
