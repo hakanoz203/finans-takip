@@ -5,7 +5,8 @@
 #  Kullanım: bash hooks/install-hooks.sh
 #
 #  hooks/ klasöründeki pre-commit ve pre-push dosyalarını
-#  .git/hooks/ altına kopyalar ve çalıştırma izni verir.
+#  .git/hooks/ altına symlink olarak bağlar.
+#  hooks/ dosyası güncellendikçe .git/hooks/ otomatik senkronize olur.
 # ============================================================
 
 set -euo pipefail
@@ -38,15 +39,16 @@ install_hook() {
     return
   fi
 
-  # Mevcut hook varsa yedekle
-  if [ -f "$dst" ] && [ ! -L "$dst" ]; then
+  # Mevcut dosya (symlink değilse) yedekle
+  if [ -e "$dst" ] && [ ! -L "$dst" ]; then
     cp "$dst" "${dst}.backup.$(date +%Y%m%d%H%M%S)"
     echo -e "  ${GREEN}→ Mevcut $name yedeklendi${NC}"
   fi
 
-  cp "$src" "$dst"
-  chmod +x "$dst"
-  echo -e "  ${GREEN}✔ $name kuruldu → .git/hooks/$name${NC}"
+  # Symlink: hooks/pre-commit değişince .git/hooks/ otomatik güncellenir
+  rm -f "$dst"
+  ln -s "../../hooks/$name" "$dst"
+  echo -e "  ${GREEN}✔ $name symlink → .git/hooks/$name${NC}"
 }
 
 install_hook "pre-commit"

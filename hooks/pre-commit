@@ -26,9 +26,16 @@ echo -e "${BOLD}${CYAN}  PRE-COMMIT KONTROL BAŞLIYOR         ${NC}"
 echo -e "${BOLD}${CYAN}══════════════════════════════════════${NC}"
 echo ""
 
+# Staged dosyaları bir kez al — boşsa xargs stdin'den okumasın
+STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || true)
+
 # ── 1. Merge conflict işaretleri ──────────────────────────
 echo -e "${BOLD}[1/6] Merge conflict işaretleri kontrol ediliyor...${NC}"
-CONFLICT_FILES=$(git diff --cached --name-only | xargs grep -l "<<<<<<\|=======\|>>>>>>>" 2>/dev/null || true)
+if [ -n "$STAGED_FILES" ]; then
+  CONFLICT_FILES=$(echo "$STAGED_FILES" | xargs grep -lP "^<{7} |^={7}$|^>{7} " 2>/dev/null || true)
+else
+  CONFLICT_FILES=""
+fi
 if [ -n "$CONFLICT_FILES" ]; then
   echo -e "  ${FAIL} Çözülmemiş conflict bulundu:"
   echo "$CONFLICT_FILES" | while read -r f; do echo "      → $f"; done
@@ -39,47 +46,42 @@ fi
 
 # ── 2. Hassas veri / API key taraması ─────────────────────
 echo -e "${BOLD}[2/6] Hassas veri taranıyor...${NC}"
-SENSITIVE_PATTERNS=(
-  "ghp_[A-Za-z0-9]{36}"         # GitHub token
-  "sk-[A-Za-z0-9]{48}"           # OpenAI key
-  "AKIA[A-Z0-9]{16}"             # AWS Access Key
-  "password\s*=\s*['\"][^'\"]+['\"]"
-  "secret\s*=\s*['\"][^'\"]+['\"]"
-  "api[_-]?key\s*=\s*['\"][^'\"]{8,}['\"]"
-  "\.env$"
-)
-
-STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || true)
-SENSITIVE_FOUND=0
-for pattern in "${SENSITIVE_PATTERNS[@]}"; do
-  MATCHES=$(echo "$STAGED_FILES" | xargs grep -lEi "$pattern" 2>/dev/null || true)
-  if [ -n "$MATCHES" ]; then
-    echo -e "  ${FAIL} Potansiyel hassas veri: pattern='${pattern}'"
-    echo "$MATCHES" | while read -r f; do echo "      → $f"; done
-    SENSITIVE_FOUND=1
-  fi
-done
-if [ "$SENSITIVE_FOUND" -eq 0 ]; then
-  echo -e "  ${PASS} Hassas veri bulunamadı"
+# Tek grep ile tüm pattern'ler — 7 process yerine 1
+SENSITIVE_PATTERN="(ghp_[A-Za-z0-9]{36}|sk-[A-Za-z0-9]{48}|AKIA[A-Z0-9]{16}|password\s*=\s*['\"][^'\"]+['\"]|secret\s*=\s*['\"][^'\"]+['\"]|api[_-]?key\s*=\s*['\"][^'\"]{8,}['\"])"
+if [ -n "$STAGED_FILES" ]; then
+  SENSITIVE_FOUND=$(echo "$STAGED_FILES" | xargs grep -lEi "$SENSITIVE_PATTERN" 2>/dev/null || true)
 else
+  SENSITIVE_FOUND=""
+fi
+if [ -n "$SENSITIVE_FOUND" ]; then
+  echo -e "  ${FAIL} Potansiyel hassas veri bulundu:"
+  echo "$SENSITIVE_FOUND" | while read -r f; do echo "      → $f"; done
   ERRORS=$((ERRORS + 1))
+else
+  echo -e "  ${PASS} Hassas veri bulunamadı"
 fi
 
-# ── 3. TypeScript tip kontrolü ────────────────────────────
+# ── 3. TypeScript tip kontrolü (sadece TS dosyası varsa) ──
 echo -e "${BOLD}[3/6] TypeScript tip kontrolü yapılıyor...${NC}"
+STAGED_TS=$(echo "$STAGED_FILES" | grep -E '\.(ts|tsx)$' || true)
 cd "$ROOT"
-if npx tsc --noEmit --skipLibCheck 2>/dev/null; then
-  echo -e "  ${PASS} TypeScript hata yok"
+if [ -n "$STAGED_TS" ]; then
+  if npx tsc --noEmit --skipLibCheck 2>/dev/null; then
+    echo -e "  ${PASS} TypeScript hata yok"
+  else
+    echo -e "  ${FAIL} TypeScript hataları var — ${YELLOW}npx tsc --noEmit${NC} ile detay gör"
+    ERRORS=$((ERRORS + 1))
+  fi
 else
-  echo -e "  ${FAIL} TypeScript hataları var — ${YELLOW}npx tsc --noEmit${NC} ile detay gör"
-  ERRORS=$((ERRORS + 1))
+  echo -e "  ${PASS} TS dosyası yok — atlandı"
 fi
 
 # ── 4. ESLint kontrolü ────────────────────────────────────
 echo -e "${BOLD}[4/6] ESLint kontrol ediliyor...${NC}"
-STAGED_TS=$(git diff --cached --name-only | grep -E '\.(ts|tsx)$' || true)
 if [ -n "$STAGED_TS" ]; then
-  if npx eslint $STAGED_TS --max-warnings=0 2>/dev/null; then
+  # Quoted array — boşluk içeren yollar güvenli
+  mapfile -t TS_ARRAY <<< "$STAGED_TS"
+  if npx eslint "${TS_ARRAY[@]}" --max-warnings=0 2>/dev/null; then
     echo -e "  ${PASS} ESLint temiz"
   else
     echo -e "  ${WARN} ESLint uyarıları var (commit devam edecek)"
@@ -90,7 +92,11 @@ fi
 
 # ── 5. console.log / debugger kalıntısı ───────────────────
 echo -e "${BOLD}[5/6] Debug kalıntıları kontrol ediliyor...${NC}"
-DEBUG_FILES=$(git diff --cached --name-only | xargs grep -lE "console\.(log|debug|warn|error)\s*\(|debugger;" 2>/dev/null || true)
+if [ -n "$STAGED_FILES" ]; then
+  DEBUG_FILES=$(echo "$STAGED_FILES" | xargs grep -lE "console\.(log|debug|warn|error)\s*\(|debugger;" 2>/dev/null || true)
+else
+  DEBUG_FILES=""
+fi
 if [ -n "$DEBUG_FILES" ]; then
   echo -e "  ${WARN} console.log / debugger bulundu (commit devam edecek):"
   echo "$DEBUG_FILES" | while read -r f; do echo "      → $f"; done
@@ -100,8 +106,9 @@ fi
 
 # ── 6. Büyük dosya kontrolü (>1MB) ───────────────────────
 echo -e "${BOLD}[6/6] Büyük dosya kontrolü (<1MB sınırı)...${NC}"
-BIG_FILES=$(git diff --cached --name-only | while read -r f; do
-  [ -f "$f" ] && SIZE=$(wc -c < "$f" 2>/dev/null || echo 0)
+BIG_FILES=$(echo "$STAGED_FILES" | while read -r f; do
+  [ -f "$f" ] || continue
+  SIZE=$(wc -c < "$f" 2>/dev/null || echo 0)
   [ "${SIZE:-0}" -gt 1048576 ] && echo "$f ($(( SIZE / 1024 ))KB)"
 done || true)
 

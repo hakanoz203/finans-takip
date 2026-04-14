@@ -160,7 +160,7 @@ else
 fi
 
 # Çok uzun dosya (>400 satır)
-LONG_FILES=$(find src -name "*.tsx" -o -name "*.ts" | while read -r f; do
+LONG_FILES=$(find src \( -name "*.tsx" -o -name "*.ts" \) -type f | while read -r f; do
   LINES=$(wc -l < "$f" 2>/dev/null || echo 0)
   [ "$LINES" -gt 400 ] && echo "$f (${LINES} satır)"
 done || true)
